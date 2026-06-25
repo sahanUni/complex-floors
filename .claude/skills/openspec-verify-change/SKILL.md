@@ -81,13 +81,23 @@ Verify that an implementation matches the change artifacts (specs, tasks, design
        - Add WARNING: "Implementation may diverge from spec: <details>"
        - Recommendation: "Review <file>:<lines> against requirement X"
 
-   **Scenario Coverage**:
-   - For each scenario in delta specs (marked with "#### Scenario:"):
-     - Check if conditions are handled in code
-     - Check if tests exist covering the scenario
-     - If scenario appears uncovered:
-       - Add WARNING: "Scenario not covered: <scenario name>"
-       - Recommendation: "Add test or implementation for scenario: <description>"
+   **Scenario Coverage (Playwright)**:
+   - For each scenario in delta specs (marked with "#### Scenario:"), look for
+     a matching Playwright `test()` in `frontend/e2e/**` named after the
+     scenario.
+   - If `frontend/e2e/` has any specs, run them: `npm run test:e2e` from
+     `frontend/` (use `--grep "<scenario name>"` to scope to one scenario if
+     useful). Do not infer pass/fail from reading code - run the suite.
+   - For each scenario:
+     - No matching Playwright test found -> CRITICAL: "Scenario not covered
+       by Playwright: <scenario name>". Recommendation: "Add a test() named
+       '<scenario name>' to frontend/e2e/<capability>.spec.ts".
+     - Matching test found but failing -> CRITICAL: "Scenario test failing:
+       <scenario name>". Recommendation: "Fix <file>:<line> - test output:
+       <failure summary>".
+     - Matching test found and passing -> mark covered, no issue.
+   - If Playwright isn't installed or `frontend/e2e/` doesn't exist yet,
+     note this explicitly as a skipped check rather than guessing coverage.
 
 7. **Verify Coherence**
 

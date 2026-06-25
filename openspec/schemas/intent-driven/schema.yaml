@@ -274,6 +274,16 @@ artifacts:
       - If implementation changes behaviour specs, include a task to run
       `openspec validate <change> --type change --strict` before archive.
 
+      - For every Gherkin scenario in this change's specs/**/*.md, include a
+      task to write or update a Playwright spec in frontend/e2e/ that
+      exercises it. Name the Playwright `test()` after the scenario name so
+      verify can match them. Group these under a dedicated "## Playwright
+      Coverage" heading.
+
+      - Include a final task to run `npm run test:e2e` (in frontend/) and
+      confirm all new/updated specs pass before the change is considered
+      apply-complete.
+
 
       Reference specs for what to build, design for how to build it, and
       <repo>/adr/ for durable architectural commitments to honor.
@@ -289,3 +299,9 @@ apply:
   instruction: |
     Read context files, work through pending tasks, mark complete as you go.
     Pause if you hit blockers or need clarification.
+
+    When a task under "## Playwright Coverage" is completed, run its
+    Playwright spec immediately (`npx playwright test <file> --project=chromium`
+    from frontend/) before checking the task off. Do not mark a Playwright
+    coverage task done if the test fails - fix the implementation or the test
+    first.
