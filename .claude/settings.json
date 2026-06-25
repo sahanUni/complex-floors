@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init *)"
+      "Bash(git init *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh repo *)",
+      "Bash(mkdir -p .claude/skills .claude/commands .claude/agents)",
+      "Bash(cp -r .agents/skills/architectural-decision-records .agents/skills/c4-diagrams .agents/skills/gherkin-authoring .agents/skills/grill-me .agents/skills/openspec-git-discipline .claude/skills/)",
+      "Bash(cp -r .opencode/skills/adversarial-authoring .opencode/skills/openspec-apply-change .opencode/skills/openspec-archive-change .opencode/skills/openspec-bulk-apply-change .opencode/skills/openspec-continue-change .opencode/skills/openspec-explore .opencode/skills/openspec-new-change .opencode/skills/openspec-propose .opencode/skills/openspec-sync-specs .opencode/skills/openspec-verify-change .claude/skills/)",
+      "Bash(cp .opencode/commands/opsx-*.md .claude/commands/)"
     ]
   }
 }
