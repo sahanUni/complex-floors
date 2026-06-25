@@ -49,3 +49,7 @@ tmp/
 temp/
 *.tmp
 *.log
+
+# Python
+*.pyc
+**/__pycache__/**
