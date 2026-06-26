@@ -20,12 +20,15 @@ interface Props {
   onClose: () => void
 }
 
+type ViewerMode = 'draw' | 'select'
+
 export default function PdfViewer({ fileId, onClose }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [numPages, setNumPages] = useState<number>(0)
   const [page, setPage] = useState(1)
   const [scale, setScale] = useState(1.0)
   const [dimensions, setDimensions] = useState<PageDimensions | null>(null)
+  const [mode, setMode] = useState<ViewerMode>('draw')
   const blobRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -78,6 +81,23 @@ export default function PdfViewer({ fileId, onClose }: Props) {
           <button onClick={() => setScale((s) => +(s + 0.25).toFixed(2))} style={btnStyle}>Zoom +</button>
           <button onClick={() => setScale((s) => +(Math.max(0.5, s - 0.25)).toFixed(2))} disabled={scale <= 0.5} style={btnStyle}>Zoom −</button>
           <span style={{ fontSize: '0.875rem', color: '#555' }}>{Math.round(scale * 100)}%</span>
+          <span style={{ width: 1, height: 24, background: '#ddd' }} />
+          <button
+            type="button"
+            aria-pressed={mode === 'draw'}
+            onClick={() => setMode('draw')}
+            style={toolBtnStyle(mode === 'draw')}
+          >
+            Draw
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === 'select'}
+            onClick={() => setMode('select')}
+            style={toolBtnStyle(mode === 'select')}
+          >
+            Select
+          </button>
         </div>
 
         <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -93,7 +113,13 @@ export default function PdfViewer({ fileId, onClose }: Props) {
             </Document>
           )}
           {dimensions && (
-            <AnnotationLayer fileId={fileId} page={page} dimensions={dimensions} />
+            <AnnotationLayer
+              key={`${fileId}-${page}`}
+              fileId={fileId}
+              page={page}
+              dimensions={dimensions}
+              mode={mode}
+            />
           )}
         </div>
       </div>
@@ -108,4 +134,13 @@ const btnStyle: React.CSSProperties = {
   borderRadius: 4,
   cursor: 'pointer',
   background: '#f5f5f5',
+}
+
+function toolBtnStyle(active: boolean): React.CSSProperties {
+  return {
+    ...btnStyle,
+    background: active ? '#111827' : '#f5f5f5',
+    borderColor: active ? '#111827' : '#ccc',
+    color: active ? '#fff' : '#111827',
+  }
 }

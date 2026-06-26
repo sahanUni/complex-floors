@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -349,3 +349,14 @@ def create_annotation(file_id: int, body: AnnotationCreate):
     conn.commit()
     conn.close()
     return dict(row)
+
+
+@app.delete("/annotations/{annotation_id}", status_code=204)
+def delete_annotation(annotation_id: int):
+    conn = get_db()
+    cur = conn.execute("DELETE FROM annotations WHERE id = ?", (annotation_id,))
+    conn.commit()
+    conn.close()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Annotation not found")
+    return Response(status_code=204)

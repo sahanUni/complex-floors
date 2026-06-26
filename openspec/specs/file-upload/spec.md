@@ -54,6 +54,7 @@ The frontend MUST provide a way to upload one or more PDF files to a project.
 - **GIVEN** a project is selected or in context
 - **WHEN** the user selects one or more `.pdf` files and submits the upload form
 - **THEN** the uploaded files SHALL appear in the project's file list
+- **AND** each file's status SHALL be displayed as `"Uploaded"` in the file table
 
 #### Scenario: Frontend restricts file picker to PDFs
 - **GIVEN** the file upload input is visible
@@ -69,3 +70,8 @@ The frontend MUST provide a way to upload one or more PDF files to a project.
 - **GIVEN** a file named `floor-plan.pdf` already exists for the project
 - **WHEN** the user uploads a file with the same name
 - **THEN** the frontend SHALL display a conflict error to the user
+
+#### Scenario: File status label maps pending to Uploaded
+- **GIVEN** the backend returns a file record with `status: "pending"`
+- **WHEN** the file table renders
+- **THEN** the status column SHALL display `"Uploaded"` not `"pending"`

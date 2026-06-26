@@ -2,6 +2,8 @@
 
 ### Requirement: Upload progress bar
 
+The frontend MUST show upload progress feedback while PDF files are being transferred.
+
 Feature: Upload progress feedback
 Rule: The user must receive visual feedback showing upload progress as a percentage while files are being transferred.
 

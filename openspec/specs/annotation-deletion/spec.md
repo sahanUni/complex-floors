@@ -1,6 +1,14 @@
-## ADDED Requirements
+# Annotation Deletion
+
+## Purpose
+
+Defines the requirements for selecting and deleting existing annotation rectangles in the PDF viewer, including the Draw/Select mode toolbar, frontend selection/deletion UX, and the backend deletion endpoint.
+
+## Requirements
 
 ### Requirement: Draw/Select mode toolbar
+
+The PDF viewer MUST provide a toolbar for switching between Draw mode and Select mode.
 
 Feature: Annotation tool mode selection
 Rule: The PDF viewer must provide a toolbar allowing the user to switch between Draw mode and Select mode.
@@ -30,6 +38,8 @@ Rule: The PDF viewer must provide a toolbar allowing the user to switch between 
 - **THEN** no new rectangle SHALL be drawn
 
 ### Requirement: Annotation selection and delete
+
+The frontend MUST let users select an existing annotation rectangle and delete it after confirmation.
 
 Feature: Annotation deletion via Select mode
 Rule: In Select mode the user must be able to select an existing annotation rectangle and delete it after confirming.
@@ -70,6 +80,8 @@ Rule: In Select mode the user must be able to select an existing annotation rect
 - **THEN** the selection SHALL be cleared on the new page
 
 ### Requirement: Annotation delete endpoint
+
+The backend MUST expose an endpoint to delete a single annotation by ID.
 
 Feature: Backend annotation deletion
 Rule: The backend must expose an endpoint to delete a single annotation by ID.

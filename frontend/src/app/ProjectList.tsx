@@ -28,6 +28,10 @@ const FILE_TYPE_LABELS: Record<string, string> = {
   spec: 'Specification',
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Uploaded',
+}
+
 export default function ProjectList({ initialProjects }: { initialProjects: Project[] }) {
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -52,7 +56,7 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
     setLoading(true)
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${id}/files`)
     const data: ProjectFile[] = await res.json()
-    setFiles((prev) => ({ ...prev, [id]: data }))
+    setFiles((prev) => (prev[id] ? prev : { ...prev, [id]: data }))
     setLoading(false)
   }
 
@@ -227,8 +231,8 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
                           <td style={{ padding: '0.4rem 0.6rem' }}>
                             {FILE_TYPE_LABELS[f.file_type] ?? f.file_type}
                           </td>
-                          <td style={{ padding: '0.4rem 0.6rem', textTransform: 'capitalize' }}>
-                            {f.status}
+                          <td style={{ padding: '0.4rem 0.6rem' }}>
+                            {STATUS_LABELS[f.status] ?? f.status}
                           </td>
                         </tr>
                       ))}

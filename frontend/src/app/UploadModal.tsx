@@ -20,6 +20,7 @@ export default function UploadModal({ projectId, onClose, onUploaded }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState<number | null>(null)
 
   function validate(files: FileList): string | null {
     for (const f of Array.from(files)) {
@@ -30,7 +31,7 @@ export default function UploadModal({ projectId, onClose, onUploaded }: Props) {
     return null
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const files = inputRef.current?.files
     if (!files || files.length === 0) {
@@ -45,35 +46,50 @@ export default function UploadModal({ projectId, onClose, onUploaded }: Props) {
 
     setError(null)
     setUploading(true)
+    setProgress(0)
     const form = new FormData()
     for (const f of Array.from(files)) form.append('files', f)
 
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/files`,
-        { method: 'POST', body: form }
-      )
-      if (res.status === 409) {
-        const data = await res.json()
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/files`)
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.total > 0) {
+        setProgress(Math.round((event.loaded / event.total) * 100))
+      } else {
+        setProgress(null)
+      }
+    })
+
+    xhr.onload = () => {
+      if (xhr.status === 201) {
+        setProgress(100)
+        const uploaded: ProjectFile[] = JSON.parse(xhr.responseText)
+        window.setTimeout(() => {
+          onUploaded(uploaded)
+          onClose()
+        }, 100)
+        return
+      }
+      if (xhr.status === 409) {
+        const data = JSON.parse(xhr.responseText)
         setError(data.detail || 'A file with that name already exists. Delete it first.')
-        return
-      }
-      if (res.status === 400) {
+      } else if (xhr.status === 400) {
         setError('Only PDF files are accepted.')
-        return
-      }
-      if (!res.ok) {
+      } else {
         setError('Upload failed. Please try again.')
-        return
       }
-      const uploaded: ProjectFile[] = await res.json()
-      onUploaded(uploaded)
-      onClose()
-    } catch {
-      setError('Network error. Please try again.')
-    } finally {
       setUploading(false)
+      setProgress(null)
     }
+
+    xhr.onerror = () => {
+      setError('Network error. Please try again.')
+      setUploading(false)
+      setProgress(null)
+    }
+
+    xhr.send(form)
   }
 
   return (
@@ -93,9 +109,26 @@ export default function UploadModal({ projectId, onClose, onUploaded }: Props) {
             type="file"
             accept=".pdf"
             multiple
+            disabled={uploading}
             style={{ display: 'block', marginBottom: '0.75rem' }}
-            onChange={() => setError(null)}
+            onChange={() => { setError(null); setProgress(null) }}
           />
+          {uploading && (
+            <div style={{ margin: '0 0 0.75rem' }}>
+              <progress
+                aria-label="Upload progress"
+                data-testid="upload-progress"
+                max={100}
+                value={progress ?? undefined}
+                style={{ width: '100%', height: 12 }}
+              />
+              {progress !== null && (
+                <div data-testid="upload-progress-value" style={{ marginTop: 4, fontSize: '0.8rem', color: '#555' }}>
+                  {progress}%
+                </div>
+              )}
+            </div>
+          )}
           {error && (
             <p style={{ color: '#c00', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>{error}</p>
           )}
