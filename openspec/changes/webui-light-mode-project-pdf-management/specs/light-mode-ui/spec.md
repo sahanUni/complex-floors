@@ -2,8 +2,6 @@
 
 ### Requirement: Always-light theme
 
-Feature: Force light mode regardless of OS colour scheme preference.
-
 The WebUI MUST render with a light theme at all times. Dark-mode overrides from `@media (prefers-color-scheme: dark)` MUST be removed. No user toggle or adaptive behaviour is provided.
 
 #### Scenario: Light theme on dark-OS system

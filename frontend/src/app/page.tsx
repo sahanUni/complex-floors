@@ -8,16 +8,18 @@ interface Project {
 }
 
 export default async function Home() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`)
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`, {
+    cache: 'no-store',
+  })
   const projects: Project[] = await res.json()
 
   return (
     <main style={{ fontFamily: 'sans-serif', padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
       <h1>Floor Plan Projects</h1>
       <p style={{ color: '#555', marginBottom: '1.5rem' }}>
-        Select a project to view its drawing files.
+        Create a project, upload PDFs, and annotate floor plans.
       </p>
-      <ProjectList projects={projects} />
+      <ProjectList initialProjects={projects} />
     </main>
   )
 }
