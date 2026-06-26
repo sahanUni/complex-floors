@@ -172,5 +172,5 @@ test('Selecting a project shows its files', async ({ page }) => {
   await page.getByText('City Centre Office Tower').click()
   await expect(page.getByText('floor-plan-level-1.pdf')).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Floor Plan' }).first()).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'pending' }).first()).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Uploaded' }).first()).toBeVisible()
 })
