@@ -284,6 +284,12 @@ artifacts:
       confirm all new/updated specs pass before the change is considered
       apply-complete.
 
+      - Always include a final "## N. Manual Verification" group with one
+      checkbox per key user-observable flow from this change's specs. These
+      checkboxes are NOT satisfied by Playwright passing - they require the
+      user to actually run the app and confirm it works as expected. Leave
+      them unchecked when generating tasks.md.
+
 
       Reference specs for what to build, design for how to build it, and
       <repo>/adr/ for durable architectural commitments to honor.
@@ -305,3 +311,12 @@ apply:
     from frontend/) before checking the task off. Do not mark a Playwright
     coverage task done if the test fails - fix the implementation or the test
     first.
+
+    Tasks under "## Manual Verification" can only be checked off by the user,
+    never by you. Once every other task is done, start the app and tell the
+    user exactly what to try, mapped to each Manual Verification checkbox.
+    If the user reports a bug: do not create a new change. Stay in this
+    change, fix the bug, add/update a Playwright spec under "## Playwright
+    Coverage" reproducing it, rerun the suite, and re-ask the user to retest
+    the same checkbox. Only mark the change apply-complete once the user has
+    explicitly confirmed every Manual Verification checkbox.

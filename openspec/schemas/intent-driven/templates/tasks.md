@@ -7,3 +7,8 @@
 
 - [ ] 2.1 <!-- Task description -->
 - [ ] 2.2 <!-- Task description -->
+
+## N. Manual Verification
+
+- [ ] N.1 User confirms <key flow 1> works as expected in the running app
+- [ ] N.2 User confirms <key flow 2> works as expected in the running app
