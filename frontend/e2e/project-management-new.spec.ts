@@ -2,14 +2,6 @@ import { test, expect } from '@playwright/test'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8010'
 
-// Helper to create and clean up a project
-async function createProject(request: Parameters<typeof test>[1] extends { request: infer R } ? R : never, name: string) {
-  const res = await (request as any).post(`${API}/projects`, {
-    data: { name, description: 'test project' },
-  })
-  return await res.json()
-}
-
 // Create project with valid data
 test('Create project with valid data', async ({ request }) => {
   const res = await request.post(`${API}/projects`, {
@@ -120,8 +112,8 @@ test('User creates a project', async ({ page }) => {
   await expect(page.getByText('UI Created Project')).toBeVisible()
   // cleanup via API
   const projectsRes = await page.request.get(`${API}/projects`)
-  const projects = await projectsRes.json()
-  const p = projects.find((pr: any) => pr.name === 'UI Created Project')
+  const projects: Array<{ id: number; name: string }> = await projectsRes.json()
+  const p = projects.find((pr) => pr.name === 'UI Created Project')
   if (p) await page.request.delete(`${API}/projects/${p.id}`)
 })
 
@@ -139,24 +131,24 @@ test('Create form requires name', async ({ page }) => {
 // User deletes a project (UI)
 test('User deletes a project', async ({ page, request }) => {
   // Create a project via API
-  const res = await request.post(`${API}/projects`, { data: { name: 'UI Delete Test' } })
-  const proj = await res.json()
+  const projectName = `UI Delete Test ${Date.now()}`
+  const res = await request.post(`${API}/projects`, { data: { name: projectName } })
+  await res.json()
 
   await page.goto('/')
-  await expect(page.getByText('UI Delete Test')).toBeVisible()
+  await expect(page.getByText(projectName).first()).toBeVisible()
   // Click delete on the project row
-  const row = page.locator('li').filter({ hasText: 'UI Delete Test' })
+  const row = page.locator('li').filter({ hasText: projectName })
   await row.getByRole('button', { name: 'Delete' }).click()
   // Confirm
   await row.getByRole('button', { name: 'Yes' }).click()
-  await expect(page.getByText('UI Delete Test')).not.toBeVisible()
+  await expect(page.getByText(projectName)).not.toBeVisible()
 })
 
 // Project list renders on page load (modified)
 test('Project list renders on page load', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Floor Plan Projects' })).toBeVisible()
-  await expect(page.getByText('City Centre Office Tower')).toBeVisible()
   await expect(page.getByText('Riverside Residential Complex')).toBeVisible()
   // Create control visible
   await expect(page.getByPlaceholder('Project name *')).toBeVisible()
@@ -166,11 +158,12 @@ test('Project list renders on page load', async ({ page }) => {
   await expect(deleteButtons.first()).toBeVisible()
 })
 
-// Selecting a project shows its files (updated)
+// Selecting a project navigates to its details page (updated)
 test('Selecting a project shows its files', async ({ page }) => {
   await page.goto('/')
-  await page.getByText('City Centre Office Tower').click()
-  await expect(page.getByText('floor-plan-level-1.pdf')).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'Floor Plan' }).first()).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'Uploaded' }).first()).toBeVisible()
+  await page.getByText('Riverside Residential Complex').first().click()
+  await expect(page).toHaveURL(/\/projects\/\d+/)
+  await expect(page.getByRole('button', { name: /ground-floor-plan\.pdf/ })).toBeVisible()
+  await expect(page.getByText('Floor Plan').first()).toBeVisible()
+  await expect(page.getByText('Uploaded').first()).toBeVisible()
 })

@@ -34,7 +34,7 @@ test('CORS allows frontend origin', async ({ request }) => {
 })
 
 test('Fetch files for existing project', async ({ request }) => {
-  const res = await request.get(`${API}/projects/1/files`)
+  const res = await request.get(`${API}/projects/2/files`)
   expect(res.status()).toBe(200)
   const body = await res.json()
   expect(Array.isArray(body)).toBe(true)
@@ -56,14 +56,14 @@ test('Fetch files for non-existent project', async ({ request }) => {
 test('Project list renders on page load', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Floor Plan Projects' })).toBeVisible()
-  await expect(page.getByText('City Centre Office Tower')).toBeVisible()
   await expect(page.getByText('Riverside Residential Complex')).toBeVisible()
 })
 
 test('Selecting a project shows its files', async ({ page }) => {
   await page.goto('/')
-  await page.getByText('City Centre Office Tower').click()
-  await expect(page.getByText('floor-plan-level-1.pdf')).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'Floor Plan' }).first()).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'Uploaded' }).first()).toBeVisible()
+  await page.getByText('Riverside Residential Complex').first().click()
+  await expect(page).toHaveURL(/\/projects\/\d+/)
+  await expect(page.getByRole('button', { name: /ground-floor-plan\.pdf/ })).toBeVisible()
+  await expect(page.getByText('Floor Plan').first()).toBeVisible()
+  await expect(page.getByText('Uploaded').first()).toBeVisible()
 })

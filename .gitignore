@@ -53,3 +53,7 @@ temp/
 # Python
 *.pyc
 **/__pycache__/**
+
+# File Storage
+uploads/*
+issues/*

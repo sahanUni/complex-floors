@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import LabelPanel, { type ExtractionLabel } from './LabelPanel'
 
 interface Annotation {
   id: number
@@ -10,6 +11,10 @@ interface Annotation {
   y0: number
   x1: number
   y1: number
+}
+
+type PendingAnnotation = Omit<Annotation, 'id' | 'file_id'> & {
+  rect: { x: number; y: number; width: number; height: number }
 }
 
 interface PageDimensions {
@@ -31,6 +36,9 @@ export default function AnnotationLayer({ fileId, page, dimensions, mode }: Prop
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [drawing, setDrawing] = useState<{ x: number; y: number } | null>(null)
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
+  const [pending, setPending] = useState<PendingAnnotation | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [confirmError, setConfirmError] = useState('')
   const svgRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {
@@ -118,20 +126,73 @@ export default function AnnotationLayer({ fileId, page, dimensions, mode }: Prop
 
     if (Math.abs(x1 - x0) < 2 && Math.abs(y1 - y0) < 2) return
 
+    const rect = {
+      x: Math.min(drawing.x, end.x),
+      y: Math.min(drawing.y, end.y),
+      width: Math.abs(end.x - drawing.x),
+      height: Math.abs(end.y - drawing.y),
+    }
+    setPending({ page, x0, y0, x1, y1, rect })
+    setConfirmError('')
+  }
+
+  async function confirmPending(label: ExtractionLabel) {
+    if (!pending) return
+    setConfirming(true)
+    setConfirmError('')
+    let createdId: number | null = null
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/files/${fileId}/annotations`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ page, x0, y0, x1, y1 }),
+          body: JSON.stringify({
+            page: pending.page,
+            x0: pending.x0,
+            y0: pending.y0,
+            x1: pending.x1,
+            y1: pending.y1,
+          }),
         }
       )
-      if (res.ok) {
-        const ann: Annotation = await res.json()
-        setAnnotations((prev) => [...prev, ann])
+      if (!res.ok) throw new Error('Could not save annotation')
+      const ann: Annotation = await res.json()
+      createdId = ann.id
+
+      const extractRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/annotations/${ann.id}/extract`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(label),
+        }
+      )
+      if (!extractRes.ok) {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/annotations/${ann.id}`, {
+          method: 'DELETE',
+        }).catch(() => {})
+        throw new Error('Could not extract region')
       }
-    } catch {}
+
+      setAnnotations((prev) => [...prev, ann])
+      setPending(null)
+    } catch (err) {
+      if (createdId !== null) {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/annotations/${createdId}`, {
+          method: 'DELETE',
+        }).catch(() => {})
+      }
+      setConfirmError(err instanceof Error ? err.message : 'Could not confirm annotation')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  function cancelPending() {
+    if (confirming) return
+    setPending(null)
+    setConfirmError('')
   }
 
   function handleClick(e: React.MouseEvent<SVGSVGElement>) {
@@ -184,7 +245,7 @@ export default function AnnotationLayer({ fileId, page, dimensions, mode }: Prop
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onClick={handleClick}
-      onMouseLeave={() => { setDrawing(null); setCursor(null) }}
+      onMouseLeave={() => { if (drawing) { setDrawing(null); setCursor(null) } }}
     >
       {annotations.map((ann) => {
         const rect = getRectBounds(ann)
@@ -245,6 +306,39 @@ export default function AnnotationLayer({ fileId, page, dimensions, mode }: Prop
           strokeWidth={1.5}
           strokeDasharray="4"
         />
+      )}
+      {pending && (
+        <>
+          <rect
+            data-testid="pending-annotation-rect"
+            x={pending.rect.x}
+            y={pending.rect.y}
+            width={pending.rect.width}
+            height={pending.rect.height}
+            fill="rgba(59,130,246,0.1)"
+            stroke="#2563eb"
+            strokeWidth={1.5}
+            strokeDasharray="4"
+          />
+          <foreignObject
+            x={Math.max(
+              8,
+              pending.rect.x + pending.rect.width + 276 > widthPx
+                ? pending.rect.x - 276
+                : pending.rect.x + pending.rect.width + 8
+            )}
+            y={Math.max(8, Math.min(pending.rect.y, heightPx - 340))}
+            width={268}
+            height={332}
+          >
+            <LabelPanel
+              busy={confirming}
+              error={confirmError}
+              onCancel={cancelPending}
+              onConfirm={confirmPending}
+            />
+          </foreignObject>
+        </>
       )}
     </svg>
   )

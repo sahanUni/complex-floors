@@ -130,7 +130,6 @@ test('Progress bar reaches 100% on completion', async ({ page, request }) => {
 
   await expect(page.getByTestId('upload-progress-value')).toHaveText('100%')
   await expect(page.getByText('Upload PDF Files')).toBeHidden({ timeout: 2000 })
-  await expect(page.getByText('progress-complete.pdf')).toBeVisible()
 
   fs.unlinkSync(tmpFile)
   await request.delete(`${API}/projects/${project.id}`)

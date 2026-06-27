@@ -40,6 +40,13 @@ class AnnotationCreate(BaseModel):
     y1: float
 
 
+class ExtractionCreate(BaseModel):
+    category: str
+    label_code: str
+    label_display: Optional[str] = None
+    note: Optional[str] = None
+
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -75,6 +82,19 @@ def init_db():
             x1         REAL NOT NULL,
             y1         REAL NOT NULL,
             created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS extractions (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            annotation_id INTEGER NOT NULL REFERENCES annotations(id),
+            category      TEXT NOT NULL,
+            label_code    TEXT NOT NULL,
+            label_display TEXT,
+            note          TEXT,
+            svg_path      TEXT NOT NULL,
+            status        TEXT DEFAULT 'pending',
+            extracted_at  TEXT,
+            created_at    TEXT DEFAULT (datetime('now'))
         );
     """)
     conn.commit()
@@ -179,6 +199,19 @@ def get_projects():
     return [dict(r) for r in rows]
 
 
+@app.get("/projects/{project_id}")
+def get_project(project_id: int):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, name, description, created_at FROM projects WHERE id = ?",
+        (project_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return dict(row)
+
+
 @app.post("/projects", status_code=201)
 def create_project(body: ProjectCreate):
     conn = get_db()
@@ -214,6 +247,15 @@ def delete_project(project_id: int):
     if file_ids:
         placeholders = ",".join("?" * len(file_ids))
         conn.execute(
+            f"""
+            DELETE FROM extractions
+            WHERE annotation_id IN (
+                SELECT id FROM annotations WHERE file_id IN ({placeholders})
+            )
+            """,
+            file_ids,
+        )
+        conn.execute(
             f"DELETE FROM annotations WHERE file_id IN ({placeholders})", file_ids
         )
 
@@ -239,6 +281,39 @@ def get_project_files(project_id: int):
         raise HTTPException(status_code=404, detail="Project not found")
     rows = conn.execute(
         "SELECT id, filename, file_type, uploaded_at, status FROM files WHERE project_id = ?",
+        (project_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+@app.get("/projects/{project_id}/extractions")
+def get_project_extractions(project_id: int):
+    conn = get_db()
+    project = conn.execute(
+        "SELECT id FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    if not project:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Project not found")
+    rows = conn.execute(
+        """
+        SELECT
+            e.id,
+            e.annotation_id,
+            a.file_id,
+            e.category,
+            e.label_code,
+            e.label_display,
+            e.note,
+            e.status,
+            e.extracted_at
+        FROM extractions e
+        JOIN annotations a ON a.id = e.annotation_id
+        JOIN files f ON f.id = a.file_id
+        WHERE f.project_id = ?
+        ORDER BY f.id, e.id
+        """,
         (project_id,),
     ).fetchall()
     conn.close()
@@ -295,6 +370,109 @@ async def upload_files(project_id: int, files: List[UploadFile] = File(...)):
     return created
 
 
+@app.post("/annotations/{annotation_id}/extract", status_code=201)
+def extract_annotation(annotation_id: int, body: ExtractionCreate):
+    conn = get_db()
+    row = conn.execute(
+        """
+        SELECT
+            a.id,
+            a.page,
+            a.x0,
+            a.y0,
+            a.x1,
+            a.y1,
+            f.project_id,
+            f.filepath
+        FROM annotations a
+        JOIN files f ON f.id = a.file_id
+        WHERE a.id = ?
+        """,
+        (annotation_id,),
+    ).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Annotation not found")
+
+    project_id = row["project_id"]
+    pdf_path = Path(UPLOAD_ROOT) / row["filepath"]
+    svg_relative_path = f"{project_id}/extractions/{annotation_id}.svg"
+    svg_path = Path(UPLOAD_ROOT) / svg_relative_path
+
+    try:
+        import fitz
+
+        svg_path.parent.mkdir(parents=True, exist_ok=True)
+        with fitz.open(pdf_path) as src_doc:
+            src_page = src_doc[row["page"] - 1]
+            # Annotation coords are in PDF user space (origin bottom-left, y upward).
+            # fitz device space has origin top-left with y downward, so flip y.
+            ph = src_page.rect.height
+            clip = fitz.Rect(
+                row["x0"],
+                ph - row["y1"],  # PDF top → device top (smaller y)
+                row["x1"],
+                ph - row["y0"],  # PDF bottom → device bottom (larger y)
+            )
+            with fitz.open() as tmp_doc:
+                tmp_page = tmp_doc.new_page(width=clip.width, height=clip.height)
+                tmp_page.show_pdf_page(
+                    fitz.Rect(0, 0, clip.width, clip.height),
+                    src_doc,
+                    row["page"] - 1,
+                    clip=clip,
+                )
+                svg = tmp_page.get_svg_image()
+        svg_path.write_text(svg, encoding="utf-8")
+    except Exception as exc:
+        conn.close()
+        raise HTTPException(status_code=500, detail="Extraction failed") from exc
+
+    cur = conn.execute(
+        """
+        INSERT INTO extractions (
+            annotation_id,
+            category,
+            label_code,
+            label_display,
+            note,
+            svg_path,
+            status,
+            extracted_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 'done', datetime('now'))
+        """,
+        (
+            annotation_id,
+            body.category,
+            body.label_code,
+            body.label_display,
+            body.note,
+            svg_relative_path,
+        ),
+    )
+    extraction_id = cur.lastrowid
+    record = conn.execute(
+        """
+        SELECT
+            id,
+            annotation_id,
+            category,
+            label_code,
+            label_display,
+            note,
+            status,
+            extracted_at
+        FROM extractions
+        WHERE id = ?
+        """,
+        (extraction_id,),
+    ).fetchone()
+    conn.commit()
+    conn.close()
+    return dict(record)
+
+
 @app.get("/files/{file_id}")
 def stream_file(file_id: int):
     conn = get_db()
@@ -313,6 +491,21 @@ def stream_file(file_id: int):
             yield from f
 
     return StreamingResponse(iter_file(), media_type="application/pdf")
+
+
+@app.get("/extractions/{extraction_id}")
+def stream_extraction(extraction_id: int):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT svg_path FROM extractions WHERE id = ?", (extraction_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Extraction not found")
+    svg_path = Path(UPLOAD_ROOT) / row["svg_path"]
+    if not svg_path.exists():
+        raise HTTPException(status_code=404, detail="Extraction file not found")
+    return Response(content=svg_path.read_bytes(), media_type="image/svg+xml")
 
 
 @app.get("/files/{file_id}/annotations")

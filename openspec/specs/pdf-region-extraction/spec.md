@@ -1,4 +1,10 @@
-## ADDED Requirements
+# PDF Region Extraction
+
+## Purpose
+
+Defines the requirements for extracting PDF regions as SVG after a user draws and confirms a labelled bounding box annotation, including the label panel interaction, backend extraction endpoints, retrieval endpoints, and cascade deletion behaviour.
+
+## Requirements
 
 ### Requirement: Post-draw label panel
 
@@ -22,6 +28,7 @@ After a user draws a bounding box, a label panel MUST appear allowing the user t
 - **WHEN** the category changes
 - **THEN** a free text label input SHALL appear for the user to describe the region
 - **AND** no level code dropdown SHALL be shown
+- **AND** the label input SHALL be required before Confirm can proceed
 
 #### Scenario: Note field available for all categories
 - **GIVEN** the label panel is open for any category

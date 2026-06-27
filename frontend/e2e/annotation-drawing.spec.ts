@@ -1,13 +1,15 @@
 import { test, expect } from '@playwright/test'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8010'
-const SEED_FILE_ID = 1
+let SEED_FILE_ID = 4
+let SEED_PROJECT_NAME = 'Riverside Residential Complex'
+let SEED_FILE_NAME = 'ground-floor-plan.pdf'
 
-// Helper: open PDF viewer for seed file 1
+// Helper: open PDF viewer for seed file
 async function openViewer(page: any) {
   await page.goto('/')
-  await page.getByText('City Centre Office Tower').click()
-  await page.getByText('floor-plan-level-1.pdf').click()
+  await page.getByText(SEED_PROJECT_NAME).first().click()
+  await page.getByRole('button', { name: new RegExp(SEED_FILE_NAME.replace('.', '\\.')) }).click()
   await expect(page.getByRole('button', { name: /Close/i })).toBeVisible({ timeout: 8000 })
 }
 
@@ -114,35 +116,37 @@ test('User draws a bounding box', async ({ page }) => {
 test('Multiple boxes on same page', async ({ page }) => {
   await openViewer(page)
   await waitForCanvas(page)
-  // Use SVG bounding box for draw coordinates
   const svg = page.locator('[data-testid="pdf-viewer"] svg').first()
   await expect(svg).toBeVisible({ timeout: 5000 })
   const box = await svg.boundingBox()
   if (!box) throw new Error('SVG not found')
 
   const rects = page.locator('[data-testid="pdf-viewer"] svg rect:not([stroke-dasharray])')
-  // Wait for pre-existing annotations to load
   await page.waitForTimeout(800)
   const countBefore = await rects.count()
 
-  async function drawBox(x1f: number, y1f: number, x2f: number, y2f: number, expectCount: number) {
-    const sx = box.x + box.width * x1f
-    const sy = box.y + box.height * y1f
-    const ex = box.x + box.width * x2f
-    const ey = box.y + box.height * y2f
-    await page.mouse.move(sx, sy)
+  async function drawAndConfirm(x1f: number, y1f: number, x2f: number, y2f: number) {
+    await page.mouse.move(box.x + box.width * x1f, box.y + box.height * y1f)
     await page.waitForTimeout(50)
     await page.mouse.down()
-    await page.mouse.move(ex, ey, { steps: 10 })
+    await page.mouse.move(box.x + box.width * x2f, box.y + box.height * y2f, { steps: 10 })
     await page.mouse.up()
-    await expect(rects).toHaveCount(expectCount, { timeout: 6000 })
+    const panel = page.getByTestId('label-panel')
+    await expect(panel).toBeVisible({ timeout: 5000 })
+    await panel.getByLabel('Category').selectOption('floor-plan')
+    await panel.getByLabel('Level code').selectOption('L03')
+    await panel.getByRole('button', { name: 'Confirm' }).click()
+    await expect(panel).toHaveCount(0, { timeout: 12000 })
   }
 
-  await drawBox(0.1, 0.1, 0.3, 0.3, countBefore + 1)
-  // Move mouse off SVG to reset any lingering mouse state, then draw second box
+  await drawAndConfirm(0.1, 0.1, 0.3, 0.3)
+  await expect(rects).toHaveCount(countBefore + 1, { timeout: 6000 })
+
   await page.mouse.move(box.x - 5, box.y - 5)
   await page.waitForTimeout(200)
-  await drawBox(0.5, 0.5, 0.8, 0.8, countBefore + 2)
+
+  await drawAndConfirm(0.5, 0.5, 0.8, 0.8)
+  await expect(rects).toHaveCount(countBefore + 2, { timeout: 6000 })
 })
 
 // Boxes persist across page navigation (UI)

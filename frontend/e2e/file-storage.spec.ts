@@ -5,7 +5,7 @@ import * as path from 'path'
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8010'
 
 test('Stream existing PDF file', async ({ request }) => {
-  const res = await request.get(`${API}/files/1`)
+  const res = await request.get(`${API}/files/4`)
   expect(res.status()).toBe(200)
   const contentType = res.headers()['content-type']
   expect(contentType).toContain('application/pdf')

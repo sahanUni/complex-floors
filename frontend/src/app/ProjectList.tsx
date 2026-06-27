@@ -1,10 +1,8 @@
 'use client'
 
-import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import UploadModal from './UploadModal'
-
-const PdfViewer = dynamic(() => import('./PdfViewer'), { ssr: false })
 
 interface Project {
   id: number
@@ -13,52 +11,16 @@ interface Project {
   created_at: string
 }
 
-interface ProjectFile {
-  id: number
-  filename: string
-  file_type: string
-  uploaded_at: string
-  status: string
-}
-
-const FILE_TYPE_LABELS: Record<string, string> = {
-  'floor-plan': 'Floor Plan',
-  elevation: 'Elevation',
-  section: 'Section',
-  spec: 'Specification',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Uploaded',
-}
-
 export default function ProjectList({ initialProjects }: { initialProjects: Project[] }) {
+  const router = useRouter()
   const [projects, setProjects] = useState<Project[]>(initialProjects)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [files, setFiles] = useState<Record<number, ProjectFile[]>>({})
-  const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
   const [uploadFor, setUploadFor] = useState<number | null>(null)
-  const [viewFileId, setViewFileId] = useState<number | null>(null)
 
   // Create project form state
   const [createName, setCreateName] = useState('')
   const [createDesc, setCreateDesc] = useState('')
   const [creating, setCreating] = useState(false)
-
-  async function selectProject(id: number) {
-    if (selectedId === id) {
-      setSelectedId(null)
-      return
-    }
-    setSelectedId(id)
-    if (files[id]) return
-    setLoading(true)
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${id}/files`)
-    const data: ProjectFile[] = await res.json()
-    setFiles((prev) => (prev[id] ? prev : { ...prev, [id]: data }))
-    setLoading(false)
-  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -87,17 +49,12 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
     })
     if (res.ok) {
       setProjects((prev) => prev.filter((p) => p.id !== id))
-      setFiles((prev) => { const n = { ...prev }; delete n[id]; return n })
-      if (selectedId === id) setSelectedId(null)
     }
     setConfirmDelete(null)
   }
 
-  function handleUploaded(projectId: number, uploaded: ProjectFile[]) {
-    setFiles((prev) => ({
-      ...prev,
-      [projectId]: [...(prev[projectId] ?? []), ...uploaded],
-    }))
+  function handleUploaded() {
+    setUploadFor(null)
   }
 
   return (
@@ -157,7 +114,7 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
               marginBottom: '1rem',
               border: '1px solid #ddd',
               borderRadius: 6,
-              background: selectedId === p.id ? '#f0f7ff' : '#fff',
+              background: '#fff',
             }}
           >
             <div
@@ -168,7 +125,7 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
                 padding: '1rem',
                 cursor: 'pointer',
               }}
-              onClick={() => selectProject(p.id)}
+              onClick={() => router.push(`/projects/${p.id}`)}
             >
               <div style={{ flex: 1 }}>
                 <strong>{p.name}</strong>
@@ -180,7 +137,6 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
                 onClick={(e) => {
                   e.stopPropagation()
                   setUploadFor(p.id)
-                  if (selectedId !== p.id) selectProject(p.id)
                 }}
                 style={actionBtn}
               >
@@ -201,46 +157,6 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
                 </button>
               )}
             </div>
-
-            {selectedId === p.id && (
-              <div style={{ padding: '0 1rem 1rem' }}>
-                {loading ? (
-                  <p style={{ color: '#888' }}>Loading files…</p>
-                ) : !files[p.id] || files[p.id].length === 0 ? (
-                  <p style={{ color: '#888' }}>No files. Upload PDFs above.</p>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                    <thead>
-                      <tr style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
-                        <th style={{ padding: '0.4rem 0.6rem' }}>File</th>
-                        <th style={{ padding: '0.4rem 0.6rem' }}>Type</th>
-                        <th style={{ padding: '0.4rem 0.6rem' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(files[p.id] ?? []).map((f) => (
-                        <tr
-                          key={f.id}
-                          style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
-                          onClick={() => setViewFileId(f.id)}
-                          title="Click to view PDF"
-                        >
-                          <td style={{ padding: '0.4rem 0.6rem', color: '#2563eb', textDecoration: 'underline' }}>
-                            {f.filename}
-                          </td>
-                          <td style={{ padding: '0.4rem 0.6rem' }}>
-                            {FILE_TYPE_LABELS[f.file_type] ?? f.file_type}
-                          </td>
-                          <td style={{ padding: '0.4rem 0.6rem' }}>
-                            {STATUS_LABELS[f.status] ?? f.status}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
           </li>
         ))}
       </ul>
@@ -249,12 +165,8 @@ export default function ProjectList({ initialProjects }: { initialProjects: Proj
         <UploadModal
           projectId={uploadFor}
           onClose={() => setUploadFor(null)}
-          onUploaded={(uploaded) => handleUploaded(uploadFor, uploaded)}
+          onUploaded={handleUploaded}
         />
-      )}
-
-      {viewFileId !== null && (
-        <PdfViewer fileId={viewFileId} onClose={() => setViewFileId(null)} />
       )}
     </div>
   )

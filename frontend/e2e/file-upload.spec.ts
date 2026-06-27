@@ -124,8 +124,10 @@ test('User uploads PDF files to a project', async ({ page, request }) => {
   await fileInput.setInputFiles(tmpFile)
   await page.getByRole('button', { name: 'Upload' }).last().click()
 
-  // File should appear in the list
-  await expect(page.getByText('ui-upload-test.pdf')).toBeVisible({ timeout: 5000 })
+  // Wait for modal to close, then navigate to project page to verify file
+  await expect(page.locator('text=Upload PDF Files')).toHaveCount(0, { timeout: 8000 })
+  await page.goto(`/projects/${proj.id}`)
+  await expect(page.getByRole('button', { name: /ui-upload-test\.pdf/ })).toBeVisible({ timeout: 5000 })
 
   removeTempFile(tmpFile)
   await request.delete(`${API}/projects/${proj.id}`)
@@ -140,12 +142,11 @@ test('File status label maps pending to Uploaded', async ({ page, request }) => 
     },
   })
 
-  await page.goto('/')
-  await page.getByText(proj.name).click()
+  await page.goto(`/projects/${proj.id}`)
 
-  const fileRow = page.getByRole('row').filter({ hasText: 'status-label.pdf' })
-  await expect(fileRow).toContainText('Uploaded')
-  await expect(fileRow).not.toContainText('pending')
+  const fileBtn = page.getByRole('button', { name: /status-label\.pdf/ })
+  await expect(fileBtn).toContainText('Uploaded')
+  await expect(fileBtn).not.toContainText('pending')
 
   await request.delete(`${API}/projects/${proj.id}`)
 })

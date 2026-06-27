@@ -47,7 +47,7 @@ flowchart TD
 **Goals:**
 - Confirm-and-extract pipeline: draw → label (category + level code + optional display name + note) → confirm → backend SVG extraction → stored result
 - `extractions` table as canonical record of all processed outputs linked to annotations
-- SVG extraction using PyMuPDF with annotation PDF-space coords (no coordinate conversion needed — ADR-0006 ensures coords are already in fitz-compatible space)
+- SVG extraction using PyMuPDF with Y-axis coordinate conversion: annotation coords are in PDF user space (origin bottom-left, y upward); fitz device space has origin top-left with y downward, so `device_y = page_height − pdf_y` before constructing `fitz.Rect`
 - Project Details page at `/projects/[id]` showing uploaded documents and extracted SVGs grouped by file
 - Project list items navigate to details page (replaces inline file expansion)
 - Floor plan level code system: fixed enum `B01, L00, L01, L02, L03, L04, L05`; optional display name alongside code
@@ -63,9 +63,9 @@ flowchart TD
 
 ### 1. PyMuPDF for SVG extraction
 
-**Decision:** Use `pymupdf` (`fitz`) to crop PDF-space rectangles and export SVG via `page.get_svg_image(clip=fitz.Rect(x0, y0, x1, y1))`.
+**Decision:** Use `pymupdf` (`fitz`) to crop the annotated region and export SVG via `tmp_page.show_pdf_page(clip=...)` + `tmp_page.get_svg_image()`. Annotation coordinates (PDF user space: origin bottom-left, y upward) must be converted to fitz device space (origin top-left, y downward) before constructing the clip rect: `device_y0 = page_height − pdf_y1`, `device_y1 = page_height − pdf_y0`.
 
-**Rationale:** ADR-0006 stores annotation coordinates in PDF point space (origin bottom-left). PyMuPDF's `fitz.Rect` uses the same coordinate system — no conversion is needed at extraction time. PyMuPDF produces native vector SVG output preserving lines, curves, and text from technical drawings. No other Python library offers this without a subprocess call to external tools.
+**Rationale:** ADR-0006 stores annotation coordinates in PDF point space (origin bottom-left, y upward). fitz device space has origin top-left with y downward — the two coordinate systems share units (points) but differ in y-axis direction, requiring an explicit flip at extraction time. PyMuPDF produces native vector SVG output preserving lines, curves, and text from technical drawings. No other Python library offers this without a subprocess call to external tools.
 
 **Alternative considered:** `pdf2svg` / `pdfcairo` subprocess — rejected: requires external system binary, adds OS-level dependency, harder to install cross-platform.
 

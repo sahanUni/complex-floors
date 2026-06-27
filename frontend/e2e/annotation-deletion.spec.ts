@@ -1,7 +1,9 @@
 import { test, expect, type APIRequestContext, type Page, type Request } from '@playwright/test'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8010'
-const SEED_FILE_ID = 1
+const SEED_FILE_ID = 4
+const SEED_PROJECT_NAME = 'Riverside Residential Complex'
+const SEED_FILE_NAME = 'ground-floor-plan.pdf'
 
 interface AnnotationRecord {
   id: number
@@ -15,8 +17,8 @@ interface AnnotationRecord {
 
 async function openSeedViewer(page: Page) {
   await page.goto('/')
-  await page.getByText('City Centre Office Tower').click()
-  await page.getByText('floor-plan-level-1.pdf').click()
+  await page.getByText(SEED_PROJECT_NAME).first().click()
+  await page.getByRole('button', { name: new RegExp(SEED_FILE_NAME.replace('.', '\\.')) }).click()
   await expect(page.getByRole('button', { name: /Close/i })).toBeVisible({ timeout: 8000 })
 }
 
